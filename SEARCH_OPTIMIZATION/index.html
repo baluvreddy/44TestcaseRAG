@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Intelligent Test Case Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .search-result-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+      }
+      .search-result-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+          0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      .loader {
+        border-top-color: #3498db;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      /* Ensure textareas don't have weird resizing handles in dark mode */
+      textarea::-webkit-resizer {
+        background-color: #4a5568;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+      <header class="text-center mb-10">
+        <h1
+          class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500"
+        >
+          Intelligent Test Case Search
+        </h1>
+        <p class="text-gray-400 mt-2">
+          Upload, search, and update your test cases instantly.
+        </p>
+      </header>
+
+      <section
+        id="upload-section"
+        class="bg-gray-800 rounded-lg p-6 shadow-lg mb-8"
+      >
+        <h2 class="text-2xl font-semibold mb-4 text-gray-200">
+          1. Upload Test Cases
+        </h2>
+        <form id="upload-form" class="space-y-4">
+          <div>
+            <label for="file-upload" class="sr-only">Choose file</label>
+            <input
+              id="file-upload"
+              type="file"
+              name="file"
+              accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+              class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition-colors cursor-pointer"
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+          >
+            Upload and Process
+          </button>
+        </form>
+        <div
+          id="upload-status"
+          class="mt-4 text-center text-sm font-medium"
+        ></div>
+      </section>
+
+      <section id="search-section" class="bg-gray-800 rounded-lg p-6 shadow-lg">
+        <h2 class="text-2xl font-semibold mb-4 text-gray-200">
+          2. Find Test Cases
+        </h2>
+        <form id="search-form" class="flex flex-col sm:flex-row gap-3">
+          <input
+            id="search-query"
+            type="text"
+            placeholder="e.g., 'verify invalid login credentials'"
+            class="flex-grow bg-gray-700 text-white rounded-lg px-4 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+          />
+          <button
+            type="submit"
+            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50"
+          >
+            Search
+          </button>
+        </form>
+      </section>
+
+      <section
+        id="manage-data-section"
+        class="bg-gray-800 rounded-lg p-6 shadow-lg mt-8"
+      >
+        <h2 class="text-2xl font-semibold mb-4 text-gray-200">
+          3. Manage Data
+        </h2>
+        <div class="flex flex-col sm:flex-row gap-4">
+          <button
+            id="show-all-btn"
+            class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+          >
+            Show All Stored Test Cases
+          </button>
+          <button
+            id="delete-all-btn"
+            class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+          >
+            Delete All Test Cases
+          </button>
+        </div>
+        <div
+          id="delete-status"
+          class="mt-4 text-center text-sm font-medium"
+        ></div>
+        <div id="all-test-cases-container" class="mt-6 space-y-4 hidden"></div>
+      </section>
+
+      <section id="results-section" class="mt-10">
+        <div id="loader" class="hidden justify-center items-center">
+          <div
+            class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"
+          ></div>
+        </div>
+        <div id="results-container" class="space-y-4"></div>
+        <div id="no-results" class="hidden text-center text-gray-400 mt-6">
+          <p>
+            No results found. Try a different search query or upload a test case
+            file.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <div
+      id="update-modal"
+      class="hidden fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4"
+    >
+      <div
+        class="bg-gray-800 rounded-lg p-8 shadow-2xl w-full max-w-2xl max-h-full overflow-y-auto"
+      >
+        <h2 class="text-2xl font-bold mb-6 text-purple-400">
+          Update Test Case
+        </h2>
+        <form id="update-form" class="space-y-4">
+          <input type="hidden" id="update-point-id" />
+          <div>
+            <label for="update-feature" class="block text-sm font-medium text-gray-300">Feature</label>
+            <input type="text" id="update-feature" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+          </div>
+          <div>
+            <label for="update-description" class="block text-sm font-medium text-gray-300">Test Case Description</label>
+            <textarea id="update-description" rows="3" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"></textarea>
+          </div>
+          <div>
+            <label for="update-prerequisites" class="block text-sm font-medium text-gray-300">Pre-requisites</label>
+            <input type="text" id="update-prerequisites" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+          </div>
+          <div>
+            <label for="update-steps" class="block text-sm font-medium text-gray-300">Steps (Combined)</label>
+            <textarea id="update-steps" rows="6" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500"></textarea>
+          </div>
+          <div id="update-status" class="text-center text-sm font-medium"></div>
+          <div class="flex justify-end gap-4 pt-4">
+            <button type="button" id="cancel-update-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+              Cancel
+            </button>
+            <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+
+    <script>
+      const uploadForm = document.getElementById("upload-form");
+      const uploadStatus = document.getElementById("upload-status");
+      const searchForm = document.getElementById("search-form");
+      const searchQuery = document.getElementById("search-query");
+      const resultsContainer = document.getElementById("results-container");
+      const loader = document.getElementById("loader");
+      const noResults = document.getElementById("no-results");
+      
+      const deleteAllBtn = document.getElementById("delete-all-btn");
+      const deleteStatus = document.getElementById("delete-status");
+      const showAllBtn = document.getElementById("show-all-btn");
+      const allTestCasesContainer = document.getElementById("all-test-cases-container");
+
+      // --- NEW: Modal Elements ---
+      const updateModal = document.getElementById("update-modal");
+      const updateForm = document.getElementById("update-form");
+      const cancelUpdateBtn = document.getElementById("cancel-update-btn");
+      const updatePointId = document.getElementById("update-point-id");
+      let lastView = null; // To track if we should refresh search or 'show all'
+
+      // --- EVENT LISTENERS ---
+
+      uploadForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(uploadForm);
+        if (!document.getElementById("file-upload").files?.length) {
+          setStatus("Please select a file.", "text-yellow-400", "upload-status");
+          return;
+        }
+        setStatus("Processing...", "text-blue-400", "upload-status");
+        try {
+          const response = await fetch("/api/upload", { method: "POST", body: formData });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail);
+          setStatus(result.message, "text-green-400", "upload-status");
+        } catch (error) {
+          setStatus(`Upload failed: ${error.message}`, "text-red-400", "upload-status");
+        }
+      });
+
+      searchForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const query = searchQuery.value.trim();
+        if (!query) return;
+
+        lastView = 'search'; // Track that we are in search view
+        resultsContainer.innerHTML = "";
+        allTestCasesContainer.classList.add("hidden");
+        noResults.classList.add("hidden");
+        loader.classList.replace("hidden", "flex");
+
+        try {
+          const response = await fetch("/api/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail);
+          displayResults(data.results);
+        } catch (error) {
+          setStatus(`Search error: ${error.message}`, "text-red-400", "results-container");
+        } finally {
+          loader.classList.replace("flex", "hidden");
+        }
+      });
+
+      deleteAllBtn.addEventListener("click", async () => {
+        if (!confirm("Are you sure? This will delete ALL test cases.")) return;
+        setStatus("Deleting all data...", "text-yellow-400", "delete-status");
+        try {
+          const response = await fetch("/api/delete-all", { method: "POST" });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail);
+          setStatus(result.message, "text-green-400", "delete-status");
+          resultsContainer.innerHTML = "";
+          allTestCasesContainer.innerHTML = "";
+          allTestCasesContainer.classList.add("hidden");
+        } catch (error) {
+          setStatus(`Deletion failed: ${error.message}`, "text-red-400", "delete-status");
+        }
+      });
+
+      showAllBtn.addEventListener("click", async () => {
+        lastView = 'all'; // Track that we are in 'show all' view
+        allTestCasesContainer.innerHTML = `<div class="text-center">Loading...</div>`;
+        allTestCasesContainer.classList.remove("hidden");
+        resultsContainer.innerHTML = "";
+        try {
+          const response = await fetch("/api/get-all");
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail);
+          displayAllTestCases(data.test_cases);
+        } catch (error) {
+          allTestCasesContainer.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+        }
+      });
+
+      // --- NEW: UPDATE MODAL LOGIC ---
+
+      // Event Delegation for Update buttons
+      document.body.addEventListener('click', (e) => {
+        if (e.target.classList.contains('update-btn')) {
+            // Retrieve the full test case data stored on the button
+            const testCaseData = JSON.parse(e.target.dataset.testcase);
+            openUpdateModal(testCaseData);
+        }
+      });
+
+      // Handle the submission of the update form
+      updateForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pointId = updatePointId.value;
+        const payload = {
+            feature: document.getElementById('update-feature').value,
+            description: document.getElementById('update-description').value,
+            prerequisites: document.getElementById('update-prerequisites').value,
+            steps: document.getElementById('update-steps').value,
+        };
+
+        setStatus('Updating test case...', 'text-blue-400', 'update-status');
+        
+        try {
+            const response = await fetch(`/api/update/${pointId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail);
+
+            setStatus('Update successful!', 'text-green-400', 'update-status');
+            setTimeout(() => {
+                closeUpdateModal();
+                // Refresh the view to show the updated data
+                if (lastView === 'search') {
+                    searchForm.requestSubmit();
+                } else if (lastView === 'all') {
+                    showAllBtn.click();
+                }
+            }, 1000);
+
+        } catch (error) {
+            setStatus(`Update failed: ${error.message}`, 'text-red-400', 'update-status');
+        }
+      });
+
+      // Close modal events
+      cancelUpdateBtn.addEventListener('click', closeUpdateModal);
+      updateModal.addEventListener('click', (e) => {
+        // If click is on the dark background overlay, close modal
+        if (e.target.id === 'update-modal') {
+            closeUpdateModal();
+        }
+      });
+
+      // --- DISPLAY & HELPER FUNCTIONS ---
+
+      function displayResults(results) {
+        if (results.length === 0) {
+          noResults.classList.remove("hidden");
+          return;
+        }
+        resultsContainer.innerHTML = results
+          .map((result) => createTestCaseCard(result, true))
+          .join("");
+      }
+
+      function displayAllTestCases(testCases) {
+        if (testCases.length === 0) {
+          allTestCasesContainer.innerHTML = '<p class="text-gray-400 text-center">No test cases found.</p>';
+          return;
+        }
+        // The /get-all endpoint returns slightly different structure, let's normalize it
+        const formattedTestCases = testCases.map(tc => ({
+            id: tc.id,
+            test_case_id: tc['Test Case ID'],
+            feature: tc['Feature'],
+            description: tc['Test Case Description'],
+            prerequisites: tc['Pre-requisites'],
+            steps: tc['Steps'],
+            summary: tc.TestCaseSummary,
+            keywords: tc.TestCaseKeywords
+        }));
+        allTestCasesContainer.innerHTML = formattedTestCases
+          .map((tc) => createTestCaseCard(tc, false))
+          .join("");
+      }
+
+      function createTestCaseCard(result, isSearchResult) {
+        // Sanitize data to prevent HTML injection if necessary, here we trust the source
+        // Using single quotes for dataset makes escaping the JSON string easier
+        const resultJSON = JSON.stringify(result).replace(/'/g, "&apos;");
+
+        const keywordBadges = (result.keywords || [])
+          .map(kw => `<span class="bg-gray-600 text-gray-300 text-xs font-medium mr-2 mb-2 inline-block px-2.5 py-0.5 rounded-full">${kw}</span>`)
+          .join("");
+
+        const matchScoreHTML = isSearchResult
+          ? `<div class="text-right ml-4 flex-shrink-0">
+               <div class="text-xl font-bold text-green-400">${result.probability}%</div>
+               <div class="text-xs text-gray-400">Match</div>
+             </div>`
+          : "";
+
+        return `
+          <div class="search-result-card bg-gray-800 rounded-lg p-5 border border-gray-700">
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="text-lg font-bold text-purple-400">${result.test_case_id || "N/A"} - ${result.feature || "N/A"}</h3>
+                <p class="text-sm text-gray-400 mt-1">${result.description || "No description."}</p>
+              </div>
+              ${matchScoreHTML}
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-700">
+              <h4 class="text-sm font-semibold text-gray-300">AI Summary</h4>
+              <p class="text-sm text-gray-400 italic mt-1">${result.summary || "No summary."}</p>
+              <div class="mt-3 flex flex-wrap">${keywordBadges}</div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-700 text-right">
+              <button class="update-btn bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition-colors"
+                      data-testcase='${resultJSON}'>
+                Update
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      function setStatus(message, colorClass, targetId) {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.textContent = message;
+          el.className = `text-center text-sm font-medium ${colorClass} mt-4`;
+        }
+      }
+
+      // --- NEW: Modal Helper Functions ---
+      function openUpdateModal(testCase) {
+        // Populate the form with the test case data
+        updatePointId.value = testCase.id;
+        document.getElementById('update-feature').value = testCase.feature || '';
+        document.getElementById('update-description').value = testCase.description || '';
+        document.getElementById('update-prerequisites').value = testCase.prerequisites || '';
+        document.getElementById('update-steps').value = testCase.steps || '';
+        // Show the modal
+        updateModal.classList.remove('hidden');
+      }
+
+      function closeUpdateModal() {
+        updateForm.reset(); // Clear the form
+        setStatus('', '', 'update-status'); // Clear any status messages
+        updateModal.classList.add('hidden');
+      }
+    </script>
+  </body>
+</html>

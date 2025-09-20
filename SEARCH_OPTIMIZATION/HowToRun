@@ -1,0 +1,96 @@
+Intelligent Test Case Search Engine
+This project provides a web interface to upload test case files (CSV/XLSX), enriches them using the Google Gemini API, and stores them in a Qdrant vector database for fast and intelligent semantic search.
+
+Features
+File Upload: Supports both CSV and XLSX file formats.
+
+AI Enrichment: Automatically generates a summary and keywords for each test case using Google Gemini.
+
+Vector Search: Uses sentence-transformers and Qdrant to find the most semantically similar test cases to a search query.
+
+Web Interface: A clean and simple UI built with FastAPI, HTML, and Tailwind CSS.
+
+REST API: Simple API endpoints for uploading and searching.
+
+Project Structure
+.
+├── main.py # The FastAPI backend application
+├── index.html # The frontend HTML file
+├── requirements.txt # Python dependencies
+└── README.md # This setup guide
+
+Setup and Installation
+Follow these steps to get the application running on your local machine.
+
+Step 1: Prerequisites
+Python 3.8+: Make sure you have a modern version of Python installed.
+
+Docker: You'll need Docker to easily run the Qdrant vector database. Install Docker.
+
+Google Gemini API Key: You need an API key from Google AI Studio.
+
+Visit Google AI Studio.
+
+Click on "Get API key" and create a new key.
+
+Copy this key. You will need it soon.
+
+Step 2: Run Qdrant with Docker
+Open your terminal and run the following command to start a Qdrant instance. This will download the Qdrant image and run it in a container.
+
+docker run -p 6333:6333 -p 6334:6334 \
+ -v $(pwd)/qdrant_storage:/qdrant/storage \
+ qdrant/qdrant
+
+This command maps the required ports and creates a qdrant_storage directory in your current folder to persist the data. You can verify that Qdrant is running by opening http://localhost:6333 in your browser.
+
+Step 3: Set Up the Python Environment
+Create a virtual environment to keep dependencies isolated:
+
+# For macOS/Linux
+
+python3 -m venv venv
+source venv/bin/activate
+
+# For Windows
+
+python -m venv venv
+.\venv\Scripts\activate
+
+Install the required Python packages from requirements.txt:
+
+pip install -r requirements.txt
+
+Step 4: Configure the Application
+Open the main.py file and update the following line with the Gemini API key you obtained in Step 1:
+
+# In main.py
+
+GOOGLE_API_KEY = "YOUR_GEMINI_API_KEY" # <-- PASTE YOUR KEY HERE
+
+Step 5: Run the FastAPI Application
+With your virtual environment activated and Qdrant running, start the web server from your terminal:
+
+uvicorn main:app --reload
+
+uvicorn: The ASGI server that runs your application.
+
+main:app: Tells uvicorn to look for an object named app in the file main.py.
+
+--reload: Automatically restarts the server when you make changes to the code.
+
+Step 6: Use the Application
+Open your web browser and navigate to:
+
+http://127.0.0.1:8000
+
+You should now see the web interface.
+
+Upload a File: Click "Choose file", select your test case CSV or XLSX file, and click "Upload and Process". Wait for the success message.
+
+Search: Type your query into the search box and click "Search". The top 3 most relevant results will appear below.
+
+How It Works: Multi-Level Indexing Concept
+While this implementation uses a direct vector search for simplicity and effectiveness, the concept of "multi-level indexing" you mentioned can be achieved via payload indexing and filtering in Qdrant.
+
+For example, you could create a payload index on the Feature field. A more advanced search implementation could then first use an LLM to categorize the user's search query (e.g., "fix login error" -> Feature: "Login Page") and then perform the vector search only on documents matching that feature. This narrows down the search space, which can improve speed and relevance on extremely large datasets.

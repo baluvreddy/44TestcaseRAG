@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-multipart
+pandas
+openpyxl
+qdrant-client
+sentence-transformers
+google-generativeai
+jinja2
