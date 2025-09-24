@@ -1,0 +1,19 @@
+# --- Core Framework ---
+fastapi
+uvicorn
+
+# --- File Handling ---
+python-multipart
+pandas
+openpyxl
+
+# --- AI / Embeddings ---
+sentence-transformers
+google-generativeai
+
+# --- Database ---
+motor
+pymongo
+
+# --- Frontend / Templating ---
+jinja2
